@@ -31,6 +31,7 @@ def sign_pdf(pdfFile):
     for i in range(0, pdf.getNumPages()):
         page = pdf.getPage(i)
 
+        # Insert signature into the last page only
         if i == pdf.getNumPages() - 1:
             # Create PDF for signature
             sig_tmp_filename = _get_tmp_filename()
