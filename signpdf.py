@@ -1,92 +1,95 @@
-#!/usr/bin/env python
-
 import os
-import argparse
 import tempfile
+import subprocess
 from PyPDF2 import PdfFileReader, PdfFileWriter
-from tkinter import *
-from tkinter import filedialog
 from reportlab.pdfgen import canvas
+import tkinter as tk
+import webbrowser
+from tkinter import filedialog
 
-parser = argparse.ArgumentParser("Add signatures to PDF files")
-parser.add_argument("pdf", help="The pdf file to sign")
 
-def _get_tmp_filename(suffix=".pdf"):
+def _get_temp_filename():
     with tempfile.NamedTemporaryFile(suffix=".pdf") as fh:
         return fh.name
 
-def sign_pdf(pdfFile):
-    output_filename = "{}_signed{}".format(
-        *os.path.splitext(pdfFile.pdf)
-    )
 
-    pdf_fh = open(pdfFile.pdf, 'rb')
-    sig_tmp_fh = None
-    signature = "sign.png"
+def sign_pdf(files):
+    for file in files:
+        output_filename = "{}_signed{}".format(*os.path.splitext(file))
 
-    pdf = PdfFileReader(pdf_fh)
-    writer = PdfFileWriter()
-    sig_tmp_filename = None
+        pdf_fh = open(file, 'rb')
+        sig_tmp_fh = None
 
-    for i in range(0, pdf.getNumPages()):
-        page = pdf.getPage(i)
+        pdf = PdfFileReader(pdf_fh)
+        writer = PdfFileWriter()
+        sig_tmp_filename = None
+        sign_stamp = 'assets/sign_stamp.png'
 
-        # Insert signature into the last page only
-        if i == pdf.getNumPages() - 1:
-            # Create PDF for signature
-            sig_tmp_filename = _get_tmp_filename()
-            c = canvas.Canvas(sig_tmp_filename, pagesize=page.cropBox)
-            c.drawImage(signature, 200, 0, 170, 100, mask='auto')
+        for i in range(0, pdf.getNumPages()):
+            page = pdf.getPage(i)
 
-            c.showPage()
-            c.save()
+            if i == pdf.getNumPages() - 1:
+                # Create PDF for signature
+                sig_tmp_filename = _get_temp_filename()
+                c = canvas.Canvas(sig_tmp_filename, pagesize=page.cropBox)
+                c.drawImage(sign_stamp, 50, 0, 500, 116, mask='auto')
+                c.showPage()
+                c.save()
 
-            # Merge PDF in to original page
-            sig_tmp_fh = open(sig_tmp_filename, 'rb')
-            sig_tmp_pdf = PdfFileReader(sig_tmp_fh)
-            sig_page = sig_tmp_pdf.getPage(0)
-            sig_page.mediaBox = page.mediaBox
-            page.mergePage(sig_page)
+                # Merge PDF in to original page
+                sig_tmp_fh = open(sig_tmp_filename, 'rb')
+                sig_tmp_pdf = PdfFileReader(sig_tmp_fh)
+                sig_page = sig_tmp_pdf.getPage(0)
+                sig_page.mediaBox = page.mediaBox
+                page.mergePage(sig_page)
 
-        writer.addPage(page)
+            writer.addPage(page)
 
-    with open(output_filename, 'wb') as fh:
-        writer.write(fh)
+        with open(output_filename, 'wb') as fh:
+            writer.write(fh)
 
-    for handle in [pdf_fh, sig_tmp_fh]:
-        if handle:
-            handle.close()
-    if sig_tmp_filename:
-        os.remove(sig_tmp_filename)
+        for handle in [pdf_fh, sig_tmp_fh]:
+            if handle:
+                handle.close()
+        if sig_tmp_filename:
+            os.remove(sig_tmp_filename)
 
-def main():
-    sign_pdf(parser.parse_args())
-
-# def browsePdf():
-#     filename = filedialog.askopenfilename(
-#         initialdir = "/",
-#         title = "Select PDF file",
-#         filetypes= (("Text Files", "*.txt"), ("PDF Files", "*.pdf"))
-#     )
-
-#     labelFilename.config(text=filename)
-
-# win = Tk()
-# win.title("Sign PDF")
-# win.geometry('500x400')
+    # Open last file directory
+    webbrowser.open(os.path.dirname(files[-1]))
 
 
-# labelFilename = Label(win, text="sample.pdf")
-# labelFilename.grid(row=0)
+def select_file():
+    files = filedialog.askopenfilenames(
+        initialdir='/', title='Select PDF File', filetypes=(('PDF files', '*.pdf'), ('All files', '*.*')))
+
+    sign_pdf(files)
 
 
-# btnBrowse = Button(win, text="Open", command=browsePdf)
-# btnBrowse.place(x=200, y=30)
+def show_options():
+    win_options = tk.Toplevel(root)
+    win_options.title('Options')
+    win_options.geometry('400x200')
+    root.withdraw()
 
-# btnSign = Button(win, text="Sign", command=sign_pdf)
-# btnSign.place(x=300, y=40)
 
-# win.mainloop()
+root = tk.Tk()
+root.title('Sign & Stamp PDF by Francis Ceril')
+root.geometry('400x200')
+root.resizable(False, False)
 
-if __name__ == "__main__":
-    main()
+menubar = tk.Menu(root, bg='#f3f3f3', foreground='#111111',
+                  activebackground='#f3f3f3', activeforeground='#111111', )
+filemenu = tk.Menu(menubar, tearoff=0, bg='#f3f3f3',
+                   foreground='#111111', font=('JetBrains Mono', 9, 'normal'))
+filemenu.add_command(label='Options', command=show_options)
+filemenu.add_separator()
+filemenu.add_command(label='Exit', command=root.quit)
+
+menubar.add_cascade(label='File', menu=filemenu)
+
+button = tk.Button(root, text='Select PDF Files...', width=20, height=1, relief='flat', font=(
+    'JetBrains Mono', 12, 'normal'), command=select_file)
+button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+root.config(menu=menubar, bg='#2f4b4c')
+root.mainloop()
